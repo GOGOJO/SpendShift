@@ -1,16 +1,83 @@
-# React + Vite
+# SpendShift
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+SpendShift is a smart financial habit tracker that helps visualize spending patterns, set savings goals, and receive actionable insights. The project now includes:
 
-Currently, two official plugins are available:
+- **Frontend:** React + Vite single-page app for dashboards, transactions, and goals.
+- **Backend:** FastAPI service that provides RESTful APIs for transactions and goals with SQLite persistence.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Frontend (React)
 
-## React Compiler
+```bash
+# Install dependencies
+npm install
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+# Start Vite dev server
+npm run dev
+```
 
-## Expanding the ESLint configuration
+The frontend currently uses localStorage. A later iteration will switch to the FastAPI endpoints below.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Backend (FastAPI)
+
+### 1. Create a virtual environment & install dependencies
+
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+### 2. Configure environment variables (optional)
+
+Create a `.env` file inside `backend/` to override defaults:
+
+```
+SPENDSHIFT_DATABASE_URL=sqlite:///./spendshift.db
+SPENDSHIFT_CORS_ORIGINS=http://localhost:5173
+```
+
+### 3. Run the API locally
+
+```bash
+uvicorn app.main:app --reload --app-dir backend
+```
+
+The API will be available at [http://localhost:8000](http://localhost:8000). Interactive docs live at `/docs`.
+
+## API Overview
+
+| Method | Endpoint                   | Description                    |
+|--------|----------------------------|--------------------------------|
+| GET    | `/health`                  | Health check                   |
+| GET    | `/api/transactions`        | List transactions              |
+| POST   | `/api/transactions`        | Create transaction             |
+| PUT    | `/api/transactions/{id}`   | Update transaction             |
+| DELETE | `/api/transactions/{id}`   | Delete transaction             |
+| GET    | `/api/goals`               | List goals                     |
+| POST   | `/api/goals`               | Create goal                    |
+| PUT    | `/api/goals/{id}`          | Update goal                    |
+| DELETE | `/api/goals/{id}`          | Delete goal                    |
+
+## Project Structure
+
+```
+.
+├── backend/
+│   ├── app/
+│   │   ├── config.py         # Settings (env vars, CORS, DB URL)
+│   │   ├── database.py       # SQLModel engine & session helpers
+│   │   ├── models.py         # SQLModel models & schemas
+│   │   ├── crud.py           # Data-access helpers
+│   │   ├── routes/           # FastAPI routers
+│   │   └── main.py           # FastAPI entry point
+│   └── requirements.txt
+├── src/                      # React frontend
+└── README.md
+```
+
+## Next Steps
+
+- Wire the React app to consume the FastAPI endpoints
+- Add Plaid/CSV ingestion services
+- Layer on AI-driven recommendations and time-series analytics

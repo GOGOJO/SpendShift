@@ -1,11 +1,11 @@
-import { useState } from 'react';
-import { useLocalStorage } from '../../hooks/useLocalStorage';
-import { dummyGoals } from '../../data/dummyData';
+import { useState, useEffect } from 'react';
+import { goalsAPI } from '../../utils/api';
 import { formatCurrency, formatDate } from '../../utils/helpers';
 import './Goals.css';
 
 export default function Goals() {
-  const [goals, setGoals] = useLocalStorage('goals', dummyGoals);
+  const [goals, setGoals] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [isAddingGoal, setIsAddingGoal] = useState(false);
   const [newGoal, setNewGoal] = useState({
     name: '',
@@ -14,7 +14,23 @@ export default function Goals() {
     category: '',
   });
 
-  const handleAddGoal = () => {
+  useEffect(() => {
+    loadGoals();
+  }, []);
+
+  const loadGoals = async () => {
+    try {
+      setLoading(true);
+      const response = await goalsAPI.list();
+      setGoals(response.data);
+    } catch (error) {
+      console.error('Failed to load goals:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddGoal = async () => {
     if (!newGoal.name || !newGoal.targetAmount || !newGoal.deadline) {
       alert('Please fill in all required fields');
       return;
@@ -26,33 +42,47 @@ export default function Goals() {
       return;
     }
 
-    const goal = {
-      id: `goal-${Date.now()}`,
-      name: newGoal.name,
-      targetAmount: targetAmount,
-      currentAmount: 0,
-      deadline: new Date(newGoal.deadline).toISOString(),
-      category: newGoal.category || 'Other',
-    };
-
-    setGoals([...goals, goal]);
-    setNewGoal({ name: '', targetAmount: '', deadline: '', category: '' });
-    setIsAddingGoal(false);
+    try {
+      await goalsAPI.create({
+        name: newGoal.name,
+        target_amount: targetAmount,
+        current_amount: 0,
+        deadline: newGoal.deadline,
+        category: newGoal.category || 'Other',
+      });
+      setNewGoal({ name: '', targetAmount: '', deadline: '', category: '' });
+      setIsAddingGoal(false);
+      await loadGoals();
+    } catch (error) {
+      console.error('Failed to create goal:', error);
+      alert('Failed to create goal. Please try again.');
+    }
   };
 
-  const handleUpdateProgress = (id, amount) => {
-    setGoals(goals.map(goal => {
-      if (goal.id === id) {
-        const newAmount = Math.max(0, Math.min(goal.targetAmount, goal.currentAmount + amount));
-        return { ...goal, currentAmount: newAmount };
-      }
-      return goal;
-    }));
+  const handleUpdateProgress = async (id, amount) => {
+    const goal = goals.find(g => g.id === id);
+    if (!goal) return;
+
+    const newAmount = Math.max(0, Math.min(goal.target_amount, goal.current_amount + amount));
+    
+    try {
+      await goalsAPI.update(id, { current_amount: newAmount });
+      await loadGoals();
+    } catch (error) {
+      console.error('Failed to update goal:', error);
+      alert('Failed to update goal. Please try again.');
+    }
   };
 
-  const handleDeleteGoal = (id) => {
+  const handleDeleteGoal = async (id) => {
     if (window.confirm('Are you sure you want to delete this goal?')) {
-      setGoals(goals.filter(g => g.id !== id));
+      try {
+        await goalsAPI.delete(id);
+        await loadGoals();
+      } catch (error) {
+        console.error('Failed to delete goal:', error);
+        alert('Failed to delete goal. Please try again.');
+      }
     }
   };
 
@@ -146,16 +176,20 @@ export default function Goals() {
         </div>
       )}
 
-      {goals.length === 0 ? (
+      {loading ? (
+        <div className="goals-empty">
+          <p>Loading goals...</p>
+        </div>
+      ) : goals.length === 0 ? (
         <div className="goals-empty">
           <p>No goals yet. Create your first financial goal to get started!</p>
         </div>
       ) : (
         <div className="goals-grid">
           {goals.map((goal) => {
-            const progress = calculateProgress(goal.currentAmount, goal.targetAmount);
+            const progress = calculateProgress(goal.current_amount, goal.target_amount);
             const daysLeft = getDaysUntilDeadline(goal.deadline);
-            const remaining = goal.targetAmount - goal.currentAmount;
+            const remaining = goal.target_amount - goal.current_amount;
 
             return (
               <div key={goal.id} className="goal-card">
@@ -184,7 +218,7 @@ export default function Goals() {
                   </div>
                   <div className="progress-text">
                     <span className="progress-amount">
-                      {formatCurrency(goal.currentAmount)} / {formatCurrency(goal.targetAmount)}
+                      {formatCurrency(goal.current_amount)} / {formatCurrency(goal.target_amount)}
                     </span>
                     <span className="progress-percentage">{progress.toFixed(1)}%</span>
                   </div>

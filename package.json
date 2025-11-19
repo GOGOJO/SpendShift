@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "dev:api": "uvicorn app.main:app --reload --app-dir backend"
+    "dev:api": "cd backend && uvicorn app.main:app --reload"
   },
   "dependencies": {
     "react": "^19.2.0",

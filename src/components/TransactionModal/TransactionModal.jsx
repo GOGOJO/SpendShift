@@ -13,11 +13,15 @@ export default function TransactionModal({ isOpen, onClose, onSave, transaction 
 
   useEffect(() => {
     if (transaction) {
+      // Handle both ISO date strings and plain date strings
+      const dateStr = transaction.date.includes('T') 
+        ? transaction.date.split('T')[0] 
+        : transaction.date;
       setFormData({
         amount: transaction.amount.toString(),
         description: transaction.description,
         category: transaction.category,
-        date: transaction.date.split('T')[0],
+        date: dateStr,
         type: transaction.type,
       });
     } else {

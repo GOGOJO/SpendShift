@@ -1,6 +1,5 @@
-import { useState } from 'react';
-import { useLocalStorage } from '../../hooks/useLocalStorage';
-import { dummyTransactions } from '../../data/dummyData';
+import { useState, useEffect } from 'react';
+import { transactionsAPI } from '../../utils/api';
 import {
   formatCurrency,
   calculateTotalByType,
@@ -14,9 +13,26 @@ import TransactionModal from '../TransactionModal/TransactionModal';
 import './Dashboard.css';
 
 export default function Dashboard() {
-  const [transactions, setTransactions] = useLocalStorage('transactions', dummyTransactions);
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
+
+  useEffect(() => {
+    loadTransactions();
+  }, []);
+
+  const loadTransactions = async () => {
+    try {
+      setLoading(true);
+      const response = await transactionsAPI.list();
+      setTransactions(response.data);
+    } catch (error) {
+      console.error('Failed to load transactions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAddTransaction = () => {
     setEditingTransaction(null);
@@ -28,19 +44,37 @@ export default function Dashboard() {
     setIsModalOpen(true);
   };
 
-  const handleSaveTransaction = (transactionData) => {
-    if (editingTransaction) {
-      setTransactions(transactions.map(t =>
-        t.id === transactionData.id ? transactionData : t
-      ));
-    } else {
-      setTransactions([transactionData, ...transactions]);
+  const handleSaveTransaction = async (transactionData) => {
+    try {
+      // Format data for API (convert ISO date string to date string, remove id)
+      const { id, ...data } = transactionData;
+      const apiData = {
+        ...data,
+        date: data.date.split('T')[0], // Convert ISO to YYYY-MM-DD
+      };
+
+      if (editingTransaction) {
+        await transactionsAPI.update(editingTransaction.id, apiData);
+      } else {
+        await transactionsAPI.create(apiData);
+      }
+      await loadTransactions();
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Failed to save transaction:', error);
+      alert('Failed to save transaction. Please try again.');
     }
   };
 
-  const handleDeleteTransaction = (id) => {
+  const handleDeleteTransaction = async (id) => {
     if (window.confirm('Are you sure you want to delete this transaction?')) {
-      setTransactions(transactions.filter(t => t.id !== id));
+      try {
+        await transactionsAPI.delete(id);
+        await loadTransactions();
+      } catch (error) {
+        console.error('Failed to delete transaction:', error);
+        alert('Failed to delete transaction. Please try again.');
+      }
     }
   };
 
@@ -53,6 +87,16 @@ export default function Dashboard() {
   const avgDailySpend = calculateAverageDailySpend(transactions);
 
   const recentTransactions = transactions.slice(0, 10);
+
+  if (loading) {
+    return (
+      <div className="dashboard">
+        <div style={{ textAlign: 'center', padding: '3rem' }}>
+          <p>Loading transactions...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard">
